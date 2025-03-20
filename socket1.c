@@ -33,8 +33,11 @@ int main() {
     socklen_t addr_len = sizeof(sender_addr);
 
     struct sockaddr_in dest_addr;
-
     struct sockaddr_in addr;
+
+    char sender_ip[16];
+    char receiver_ip[16];
+
     sock = socket(AF_INET, SOCK_RAW, RSVP_PROTOCOL);
     if (sock < 0) {
         perror("Socket creation failed");
