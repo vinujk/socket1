@@ -13,13 +13,7 @@
 #include <net/route.h>
 #include <netinet/in.h>
 
-char srcip[16];
-char dstip[16];
-char nhip[16];
 struct src_dst_ip *ip = NULL;
-
-char sender_ip[16];
-char receiver_ip[16];
 
 struct session* path_head;
 struct session* resv_head;
@@ -28,15 +22,19 @@ int sock = 0;
 
 int main() {
 
+    char srcip[16];
+    char dstip[16];
+    int explicit = 0;
     char buffer[512];
     struct sockaddr_in sender_addr;
     socklen_t addr_len = sizeof(sender_addr);
 
-    struct sockaddr_in dest_addr;
+    //struct sockaddr_in dest_addr;
     struct sockaddr_in addr;
 
     char sender_ip[16];
     char receiver_ip[16];
+    struct in_addr send_ip, rece_ip;
 
     sock = socket(AF_INET, SOCK_RAW, RSVP_PROTOCOL);
     if (sock < 0) {
@@ -63,6 +61,9 @@ int main() {
     printf("Enter dst ip: \n");
     fgets(dstip, 16, stdin);
 
+    //printf("Is Explicit enable 1-yes 0-NO\n");
+    //scanf("%d ", &explicit);
+
     int len = strlen(srcip);
     if(srcip[len-1] == '\n') 
 	srcip[len-1] = '\0';
@@ -70,20 +71,22 @@ int main() {
     strlen(dstip);
     if(dstip[len-1] == '\n')
         dstip[len-1] = '\0';
-    strcpy(sender_ip, srcip);
-    strcpy(receiver_ip, dstip);
-    
+
+    inet_pton(AF_INET, srcip, &send_ip);
+    inet_pton(AF_INET, dstip, &rece_ip);
+	
     if(resv_head == NULL) {
-	resv_head = insert_session(resv_head, sender_ip, receiver_ip);
+	resv_head = insert_session(resv_head, srcip, dstip, 1);
     } else {
-        insert_session(resv_head, sender_ip, receiver_ip);
+        insert_session(resv_head, srcip, dstip, 1);
     }
+
+    // Send RSVP-TE PATH Message
+    send_path_message(sock, send_ip, rece_ip);
     //---------------------------------------------------------
 
-    //get_nexthop(dstip, nhip);
-    //printf("next hop -> %s\n", nhip);
-
     path_event_handler(); //send path msg
+    int reached = 0;
 	 
     while(1) {
    	memset(buffer, 0, sizeof(buffer));
@@ -99,15 +102,20 @@ int main() {
 	switch(rsvp->msg_type) {
 
 		case PATH_MSG_TYPE:
-
+	
+			//Receive PATH Message
+		
+			resv_event_handler();
                         // get ip from the received path packet
-                        get_ip(buffer, sender_ip, receiver_ip);
-                        //Receive PATH Message
-                        printf("insert_path_session\n");
+			printf(" in path msg type\n");
+			get_ip(buffer, sender_ip, receiver_ip);
+                        reached = dst_reached(sender_ip);
+
+                        //printf("insert_path_session\n");
                         if(path_head == NULL) {
-                                path_head = insert_session(path_head, sender_ip, receiver_ip);
+                                path_head = insert_session(path_head, sender_ip, receiver_ip,reached);
                         } else {
-                                insert_session(path_head, sender_ip, receiver_ip);
+                                insert_session(path_head, sender_ip, receiver_ip, reached);
                         }
 
                         receive_path_message(sock,buffer,sender_addr);
@@ -115,14 +123,20 @@ int main() {
                         break;
 
                 case RESV_MSG_TYPE:
+
+		      	// Receive RSVP-TE RESV Message	
+  			//path_event_handler();
+
                         //get ip from the received resv msg
+			printf(" in resv msg type\n");
                         get_ip(buffer, sender_ip, receiver_ip);
-                        // Receive RSVP-TE RESV Message
-                        printf("insert_resv_session\n");
+			reached = dst_reached(sender_ip);
+
+                        //printf("insert_resv_session\n");
                         if(resv_head == NULL) {
-                                resv_head = insert_session(resv_head, sender_ip, receiver_ip);
+                                resv_head = insert_session(resv_head, sender_ip, receiver_ip, reached);
                         } else {
-                                insert_session(resv_head, sender_ip, receiver_ip);
+                                insert_session(resv_head, sender_ip, receiver_ip, reached);
                         }
 
                         receive_resv_message(sock,buffer,sender_addr);

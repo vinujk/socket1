@@ -6,7 +6,7 @@ struct session* head = NULL;
 time_t now = 0;
 
 	
-struct session* insert_session(struct session* sess, char sender[], char receiver[]) {
+struct session* insert_session(struct session* sess, char sender[], char receiver[], u_int8_t dest) {
         now = time(NULL);
         printf("insert session\n");
         if(sess == NULL) {
@@ -17,6 +17,7 @@ struct session* insert_session(struct session* sess, char sender[], char receive
                 temp->last_path_time = now;
                 strcpy(temp->sender, sender);
                 strcpy(temp->receiver, receiver);
+		temp->dest = dest;
                 temp->next = NULL;
                 return temp;
         } else {
@@ -27,7 +28,7 @@ struct session* insert_session(struct session* sess, char sender[], char receive
 				sess->last_path_time = now;
                                 return;
                         }
- 			local = sess;
+			local = sess;
                         sess=sess->next;
                 }
 
@@ -36,8 +37,9 @@ struct session* insert_session(struct session* sess, char sender[], char receive
                          printf("cannot allocate dynamic memory\n");
 
                 temp->last_path_time = now;
-                strcpy(temp->sender, sender);
+		strcpy(temp->sender, sender);
                 strcpy(temp->receiver, receiver);
+		temp->dest = dest;
                 temp->next = NULL;
 
                 local->next = temp;
@@ -45,7 +47,7 @@ struct session* insert_session(struct session* sess, char sender[], char receive
 }
 
 
-struct session* delete_session(struct session* sess, char sender[], char receiver[]) {
+struct session* delete_session(struct session* sess, char sender[], char receiver[]) { 
 
         struct session *temp = NULL;
 	struct session *head = sess;
