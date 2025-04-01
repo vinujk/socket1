@@ -85,7 +85,7 @@ int main() {
     send_path_message(sock, send_ip, rece_ip);
     //---------------------------------------------------------
 
-    path_event_handler(); //send path msg
+    //path_event_handler(); //send path msg
     int reached = 0;
 	 
     while(1) {
@@ -125,7 +125,7 @@ int main() {
                 case RESV_MSG_TYPE:
 
 		      	// Receive RSVP-TE RESV Message	
-  			//path_event_handler();
+  			path_event_handler();
 
                         //get ip from the received resv msg
 			printf(" in resv msg type\n");
