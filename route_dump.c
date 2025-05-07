@@ -1,3 +1,23 @@
+/*
+ * Copyright (c) 2025, Spanidea. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the “Software”), to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ **/
+
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -10,11 +30,12 @@
 #include <sys/socket.h>
 #include <linux/rtnetlink.h>
 
+#include "log.h"
 
-static char dest_ip[16], nh[16], DEv[16];
+static char dest_ip[16], src_ip[16], nh[16], DEv[16];
+static char buf1[256];
 static uint32_t ifh;
 uint8_t prefix_len = 0;
-char src_ip[16];
 
 // Function to check if an IP is in a subnet
 int is_ip_in_subnet(const char *ip, const char *subnet, int prefix_len) {
@@ -118,6 +139,9 @@ int print_route(struct nlmsghdr* nl_header_answer)
     strcpy((char*)route, " ");
     strcpy(nh, " ");
     strcpy(src_ip, " ");
+    strcpy(DEv, " ");
+    prefix_len =0;
+    ifh = 0;
 
     parse_rtattr(tb, RTA_MAX, RTM_RTA(r), len);
 
@@ -138,13 +162,13 @@ int print_route(struct nlmsghdr* nl_header_answer)
         inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_DST]), buf, sizeof(buf));
         strcpy(route, buf);
         prefix_len = r->rtm_dst_len;	
-        //printf("route = %s %d\n", route,prefix_len);
-        //printf("%s/%u ", inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_DST]), buf, sizeof(buf)), r->rtm_dst_len);
+        //log_message("route = %s %d\n", route,prefix_len);
+        //log_message("%s/%u ", inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_DST]), buf, sizeof(buf)), r->rtm_dst_len);
 
     } else if (r->rtm_dst_len) {
-        printf("0/%u ", r->rtm_dst_len);
+        log_message("0/%u ", r->rtm_dst_len);
     } else {
-        //printf("default ");
+        //log_message("default ");
         strcpy(route, "0.0.0.0");
         //route = "0.0.0.0";
     }
@@ -152,8 +176,10 @@ int print_route(struct nlmsghdr* nl_header_answer)
     if (tb[RTA_GATEWAY]) {
         inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_GATEWAY]), buf, sizeof(buf));
         strcpy(nh, buf);
-        //printf("next hop for destination ip %s is -> %s\n", dest_ip, nh);
-        //printf("via %s", inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_GATEWAY]), buf, sizeof(buf)));
+	strcpy(buf1, buf);
+	printf("buf1 = %s\n", buf1);
+        //log_message("next hop for destination ip %s is -> %s\n", dest_ip, nh);
+        //log_message("via %s", inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_GATEWAY]), buf, sizeof(buf)));
     }
 
     if (tb[RTA_OIF]) {
@@ -164,33 +190,47 @@ int print_route(struct nlmsghdr* nl_header_answer)
         dev = if_indextoname(ifidx, if_nam_buf);
         strcpy(DEv, dev);
 
-        //printf("dev -- %s ifidx = %d buf = %s\n", dev,ifidx,if_nam_buf);
-        //printf(" dev %s", if_indextoname(ifidx, if_nam_buf));
+        //log_message("dev -- %s ifidx = %d buf = %s\n", dev,ifidx,if_nam_buf);
+        //log_message(" dev %s", if_indextoname(ifidx, if_nam_buf));
     }
 
     if (tb[RTA_SRC]) {
-        //inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_SRC]), buf, sizeof(buf));
+        inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_SRC]), buf, sizeof(buf));
         //strcpy(src, buf);
-
         //printf("\n src -- %s\n", src);
-        //printf("src %s", inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_SRC]), buf, sizeof(buf)));
+        //log_message("src %s", inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_SRC]), buf, sizeof(buf)));
     }
 
     if (tb[RTA_PREFSRC]) {
         inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_PREFSRC]), buf, sizeof(buf));
         strcpy(src_ip, buf);
         //printf("src_ip = %s\n",src_ip);	
-        //printf("src %s\n", inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_PREFSRC]), buf, sizeof(buf)));
+        //log_message("src %s\n", inet_ntop(r->rtm_family, RTA_DATA(tb[RTA_PREFSRC]), buf, sizeof(buf)));
     }
+	
+	/*if(strcmp(route," ") == 0) {
+		printf("nh === %s\n", nh);
+	}
+	
+	printf("next hop for destination ip %s route = %s is -> %s src = %s prefix_len = %d dev = %s ifh = %d\n",
+                                                                dest_ip,route,nh,src_ip,prefix_len, DEv, ifh);
+*/		
 
     if(is_ip_in_subnet(dest_ip, route, prefix_len) == 1) {
-	printf("next hop for destination ip %s is -> %s prefix_len = %d dev = %s ifh = %d\n", dest_ip,nh,prefix_len, DEv, ifh);
+	printf("next hop for destination ip %s route = %s is -> %s src = %s prefix_len = %d dev = %s ifh = %d\n", 
+								dest_ip,route,nh,src_ip,prefix_len, DEv, ifh);
+
+	/*if(strcmp(src_ip, " ") == 0) {
+		strcpy(dest_ip, nh);
+		return 0;
+	}*/
+		
         return 1;
     } else {
         return 0;
     }
 
-    //printf("\n");
+    //log_message("\n");
 }
 
 int open_netlink()
@@ -231,7 +271,7 @@ int do_route_dump_requst(int sock)
     nl_request.nlh.nlmsg_len = sizeof(nl_request);
     nl_request.nlh.nlmsg_seq = time(NULL);
     nl_request.rtm.rtm_family = AF_INET;
-    //nl_request.rtm.rtm_table = RT_TABLE_LOCAL;
+    nl_request.rtm.rtm_table = RT_TABLE_LOCAL;
 
     return send(sock, &nl_request, sizeof(nl_request), 0);
 }
@@ -255,7 +295,7 @@ int get_route_dump_response(int sock)
     struct nlmsghdr *h = (struct nlmsghdr *)buf;
     int msglen = status;
 
-    //printf("Main routing table IPv4\n");
+    //log_message("Main routing table IPv4\n");
 
     while (NLMSG_OK(h, msglen)) {
         if (h->nlmsg_flags & NLM_F_DUMP_INTR) {
@@ -273,10 +313,23 @@ int get_route_dump_response(int sock)
             free(buf);
         }
 
-        if(print_route(h)) { 
+	/*if(h->nlmsg_type == RTM_NEWROUTE) {
+		struct rtmsg *rtm = NLMSG_DATA(h);
+		struct rtattr *tb[RTA_MAX + 1];
+		int rtl = RTM_PAYLOAD(h);
+
+		parse_rtattr(tb, RTA_MAX, RTM_RTA(rtm), rtl);
+
+		if(tb[RTA_GATEWAY]) {
+			char gw_buf[16];
+			inet_ntop(rtm->rtm_family, RTA_DATA(tb[RTA_GATEWAY]), gw_buf, sizeof(gw_buf));
+			printf("gateway = %s\n", gw_buf);
+		}
+	}*/
+
+        if(print_route(h) == 1) { 
             return 1;
         }
-
 
         h = NLMSG_NEXT(h, msglen);
     }
@@ -299,9 +352,8 @@ int get_nexthop(const char *dst_ip, char *nh_ip, uint8_t *pref_len, char* Dev, i
         close(nl_sock);
         return -1;
     }
-
     temp = get_route_dump_response(nl_sock);
-
+    
     strcpy(nh_ip, nh);
     strcpy(Dev, DEv);
     *Ifh = ifh;
@@ -309,8 +361,34 @@ int get_nexthop(const char *dst_ip, char *nh_ip, uint8_t *pref_len, char* Dev, i
 
     close (nl_sock);
 
-    if(temp)
+    if(temp == 1)
         return 1;
 
     return 0;
 }
+
+int get_srcip(const char *nhip, char *srcip, int *Ifh) {
+
+     int temp = 0;
+
+    strcpy(dest_ip, nhip);
+    int nl_sock = open_netlink();
+
+    if (do_route_dump_requst(nl_sock) < 0) {
+        perror("Failed to perfom request");
+        close(nl_sock);
+        return -1;
+    }
+    temp = get_route_dump_response(nl_sock);
+	
+    strcpy(srcip, src_ip);
+    *Ifh = ifh;
+
+    close (nl_sock);
+
+    if(temp == 1)
+        return 1;
+
+    return 0;
+}
+
